@@ -27,6 +27,7 @@ typedef struct {
 #ifndef __OpenBSD__
 void dummysighandler(int num);
 #endif
+char** last_updates;
 void sighandler(int num);
 void buttonhandler(int sig, siginfo_t *si, void *ucontext);
 void getcmds(int time);
@@ -58,7 +59,7 @@ static int statusContinue = 1;
 static int returnStatus = 0;
 
 //opens process *cmd and stores output in *output
-void getcmd(const Block *block, char *output)
+void getcmd(const Block *block, char* last_update , char *output)
 {
 	if (block->signal)
 	{
@@ -82,6 +83,12 @@ void getcmd(const Block *block, char *output)
 		return;
 	int i = strlen(block->icon);
 	fgets(output+i, CMDLENGTH-i-delimLen, cmdf);
+
+	if(i == strlen(output))
+		strcpy(output+i, last_update);
+	else
+		strcpy(last_update, output+i);
+
 	i = strlen(output);
 	if (i == 0) {
 		//return if block and command output are both empty
@@ -104,7 +111,7 @@ void getcmds(int time)
 	for (unsigned int i = 0; i < LENGTH(blocks); i++) {
 		current = blocks + i;
 		if ((current->interval != 0 && time % current->interval == 0) || time == -1)
-			getcmd(current,statusbar[i]);
+			getcmd(current,last_updates[i],statusbar[i]);
 	}
 }
 
@@ -114,7 +121,7 @@ void getsigcmds(unsigned int signal)
 	for (unsigned int i = 0; i < LENGTH(blocks); i++) {
 		current = blocks + i;
 		if (current->signal == signal)
-			getcmd(current,statusbar[i]);
+			getcmd(current,last_updates[i],statusbar[i]);
 	}
 }
 
@@ -202,6 +209,11 @@ void pstdout()
 void statusloop()
 {
 	setupsignals();
+	last_updates = malloc(sizeof(char*) * LENGTH(blocks));
+	for(int i = 0; i < LENGTH(blocks); i++) {
+		last_updates[i] = malloc(sizeof(char) * CMDLENGTH);
+		strcpy(last_updates[i],"");
+	}
 	int i = 0;
 	getcmds(-1);
 	while (1) {
@@ -229,6 +241,10 @@ void sighandler(int signum)
 
 void termhandler()
 {
+	for(int i = 0; i < LENGTH(blocks); i++) {
+		free(last_updates[i]);
+	}
+	free(last_updates);
 	statusContinue = 0;
 }
 
