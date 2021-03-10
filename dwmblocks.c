@@ -24,9 +24,6 @@ typedef struct {
 	unsigned int interval;
 	unsigned int signal;
 } Block;
-#ifndef __OpenBSD__
-void dummysighandler(int num);
-#endif
 char** last_updates;
 void sighandler(int num);
 void buttonhandler(int sig, siginfo_t *si, void *ucontext);
@@ -129,7 +126,7 @@ void setupsignals()
 {
 	struct sigaction sa;
 	for(int i = 0; i < LENGTH(blocks); i++)
-	{	  
+	{
 		if (blocks[i].signal > 0)
 		{
 			signal(SIGRTMIN+blocks[i].signal, sighandler);
@@ -139,6 +136,11 @@ void setupsignals()
 	sa.sa_sigaction = buttonhandler;
 	sa.sa_flags = SA_SIGINFO;
 	sigaction(SIGUSR1, &sa, NULL);
+	struct sigaction sigchld_action = {
+		.sa_handler = SIG_DFL,
+		.sa_flags = SA_NOCLDWAIT
+	};
+	sigaction(SIGCHLD, &sigchld_action, NULL);
 }
 
 int getstatus(char *str, char *last)
@@ -205,7 +207,6 @@ void pstdout()
 	fflush(stdout);
 }
 
-
 void statusloop()
 {
 	setupsignals();
@@ -224,14 +225,6 @@ void statusloop()
 		sleep(1.0);
 	}
 }
-
-#ifndef __OpenBSD__
-/* this signal handler should do nothing */
-void dummysighandler(int signum)
-{
-    return;
-}
-#endif
 
 void sighandler(int signum)
 {
